@@ -5,7 +5,7 @@ using namespace cimg_library;
 
 int main() {
     // Rotate and Transfrom
-    CImg<unsigned char> srcImg("2.bmp");
+    CImg<unsigned char> srcImg("1.bmp");
 
     float width = srcImg.width();
     float height = srcImg.height();
