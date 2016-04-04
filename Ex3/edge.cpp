@@ -3,6 +3,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/opencv.hpp>
+#include <cmath>
 
 using namespace cv;
 using namespace std;
@@ -22,13 +23,18 @@ void myHoughLines(const Mat& img, vector<Vec2f>& lines, float rho, float theta, 
 }
 */
 
-// Compare function based on theta
-bool cmp(const Vec2f& a, const Vec2f& b) {
+// Line comparison function based on theta
+bool lineCmp(const Vec2f& a, const Vec2f& b) {
     double threshold = 0.1;
     if ( abs(a[1] - b[1]) < threshold ) {
         return a[0] < b[0];
     }
     return a[1] < b[1];
+}
+
+// Point comparison function
+bool pointCmp(const Point& a, const Point& b) {
+    return a.x + a.y < b.x + b.y;
 }
 
 // Ref: http://docs.opencv.org/2.4/doc/tutorials/introduction/linux_gcc_cmake/linux_gcc_cmake.html#linux-gcc-usage
@@ -73,7 +79,7 @@ int main(int argc, char* argv[]) {
     // myHoughLines(edge, lines, rho, theta, threshold);
     
     // Sort lines based on theta
-    sort(lines.begin(), lines.end(), cmp);
+    sort(lines.begin(), lines.end(), lineCmp);
     // Move lines with theta near 3.1 to the front
     int last = lines.size() - 1;
     while ( lines[0][1] <= 0.1 && lines[last][1] >= 3.1 ) {
@@ -83,8 +89,12 @@ int main(int argc, char* argv[]) {
         lines.erase(it);
     }
 
-    dstImg.create(srcImg.size(), srcImg.type());
-    dstImg = Scalar::all(0);
+    double rotationAngle = lines[0][1] * 180 / CV_PI;
+    double rotationThreshold = 0.1;
+    // Rotate 90 degree clockwise for horizontal papers, e.g. 2.jpg and 4.jpg
+    if ( lines[0][1] > rotationThreshold ) {
+        rotationAngle -= 90;
+    }
 
     for ( size_t i = 0; i < lines.size(); i++ ) {
         float rho = lines[i][0], theta = lines[i][1];
@@ -94,10 +104,10 @@ int main(int argc, char* argv[]) {
         float deltaTheta = 0.25;
 
         if ( i > 0 && abs(rho - lines[i - 1][0]) < deltaRho &&
-            ( abs(3.14 - (rho + lines[i - 1][0])) < deltaRho || abs(theta - lines[i - 1][1]) < deltaTheta ) ) {
+            ( abs(CV_PI - (rho + lines[i - 1][0])) < deltaRho || abs(theta - lines[i - 1][1]) < deltaTheta ) ) {
             continue;
         }
-        // cout << rho << " " << theta << endl;
+        cout << rho << " " << theta << endl;
 
         // Produce two lines on the line
         Point pt1, pt2;
@@ -107,6 +117,7 @@ int main(int argc, char* argv[]) {
         pt1.y = cvRound(y0 + 1000 * (a));
         pt2.x = cvRound(x0 - 1000 * (-b));
         pt2.y = cvRound(y0 - 1000 * (a));
+        // Draw red lines
         line(srcImg, pt1, pt2, Scalar(0, 0, 255), 3, CV_AA);
 
         struct myLine ml;
@@ -127,6 +138,7 @@ int main(int argc, char* argv[]) {
         mls.push_back(ml);
     }
 
+    vector<Point> pts;
     // Calculate line-line intersection.
     // Ref: https://en.wikipedia.org/wiki/Line–line_intersection
     for ( int i = 0; i < 2; ++i ) {
@@ -142,13 +154,38 @@ int main(int argc, char* argv[]) {
                 y = (a * d - b * c) / (a - b);
             }
             printf("Point: (%lf, %lf)\n", x, y);
+            Point pt1;
+            pt1.x = x;
+            pt1.y = y;
+            pts.push_back(pt1);
+            // Draw blue points
+            line(srcImg, pt1, pt1, Scalar(255, 0, 0), 12, CV_AA);
         }
     }
 
-    // namedWindow("Edge", CV_WINDOW_AUTOSIZE);
-    // imshow("Display Image", edge);
-    imshow("Display Image", srcImg);
+    sort(pts.begin(), pts.end(), pointCmp);
+    Point center;
+    center.x = (pts[0].x + pts[3].x) / 2;
+    center.y = (pts[0].y + pts[3].y) / 2;
+    // line(srcImg, center, center, Scalar(0, 255, 0), 12, CV_AA);
 
+    Mat rotatedImg;
+    Mat rotationMatrix;
+    srcImg.copyTo(rotatedImg);
+
+    cout << "RG: " << rotationAngle << endl;
+
+    // Ref: http://docs.opencv.org/2.4/doc/tutorials/imgproc/imgtrans/warp_affine/warp_affine.html
+    rotationMatrix = getRotationMatrix2D(center, rotationAngle, 1);
+    warpAffine(rotatedImg, rotatedImg, rotationMatrix, rotatedImg.size() );
+
+    if ( srcImg.rows < srcImg.cols ) {
+        // Rotate 90 degree clockwise for horizontal papers and diminish their sizes
+        rotationMatrix = getRotationMatrix2D(center, 90, 0.7);
+        warpAffine(rotatedImg, rotatedImg, rotationMatrix, rotatedImg.size() );
+    }
+    
+    imshow("Display Image", rotatedImg);
     waitKey(0);
     return 0;
 }
