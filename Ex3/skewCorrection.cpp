@@ -25,7 +25,7 @@ void myHoughLines(const Mat& img, vector<Vec2f>& lines, float rho, float theta, 
 
 // Line comparison function based on theta
 bool lineCmp(const Vec2f& a, const Vec2f& b) {
-    double threshold = 0.1;
+    const double threshold = 0.1;
     if ( abs(a[1] - b[1]) < threshold ) {
         return a[0] < b[0];
     }
@@ -80,9 +80,11 @@ int main(int argc, char* argv[]) {
     
     // Sort lines based on theta
     sort(lines.begin(), lines.end(), lineCmp);
-    // Move lines with theta near 3.1 to the front
+    // Move lines with theta near 3.1 that is vertical lines to the front
     int last = lines.size() - 1;
-    while ( lines[0][1] <= 0.1 && lines[last][1] >= 3.1 ) {
+    const double minTheta = 0.1;
+    const double maxTheta = 3.1;
+    while ( lines[0][1] <= minTheta && lines[last][1] >= maxTheta ) {
         vector<Vec2f>::iterator it = lines.begin() + 1;
         lines.insert(it, lines[last]);
         it = lines.end() - 1;
@@ -90,7 +92,7 @@ int main(int argc, char* argv[]) {
     }
 
     double rotationAngle = lines[0][1] * 180 / CV_PI;
-    double rotationThreshold = 0.1;
+    const double rotationThreshold = 0.1;
     // Rotate 90 degree clockwise for horizontal papers, e.g. 2.jpg and 4.jpg
     if ( lines[0][1] > rotationThreshold ) {
         rotationAngle -= 90;
@@ -99,14 +101,30 @@ int main(int argc, char* argv[]) {
     for ( size_t i = 0; i < lines.size(); i++ ) {
         float rho = lines[i][0], theta = lines[i][1];
 
-        // Eliminate duplicates.
+        // Eliminate lines that are close to each other
         const float deltaRho = 100;
         const float deltaTheta = 0.25;
-
+                      //  When rhos are very close
         if ( i > 0 && abs(rho - lines[i - 1][0]) < deltaRho &&
-            ( abs(CV_PI - (rho + lines[i - 1][0])) < deltaRho || abs(theta - lines[i - 1][1]) < deltaTheta ) ) {
+            ( abs(CV_PI - (theta + lines[i - 1][1])) < deltaTheta || abs(theta - lines[i - 1][1]) < deltaTheta ) ) {
+            // When one theta is near 3.1 and the other is near 0 or thetas are very close
+            vector<Vec2f>::iterator it = lines.begin() + i;
+            lines.erase(it);
+            --i;
             continue;
         }
+        
+        // Eliminate wrong lines
+        if ( i > 0 && i < lines.size() - 1 &&
+             abs(theta - lines[i - 1][1]) > deltaTheta && abs(theta - lines[i + 1][1]) > deltaTheta ) {
+            cout << abs(theta - lines[i - 1][1]) << " " << abs(theta - lines[i + 1][1]) << endl;
+            vector<Vec2f>::iterator it = lines.begin() + i;
+            lines.erase(it);
+            --i;
+            continue;
+        }
+        
+        
         cout << "rho: " << rho << "  theta: " << theta << endl;
 
         // Produce two lines on the line
@@ -183,7 +201,7 @@ int main(int argc, char* argv[]) {
 
     if ( srcImg.rows < srcImg.cols ) {
         // Rotate 90 degree clockwise for horizontal papers and diminish their sizes
-        const float scale = 0.7;
+        const float scale = 0.75;
         rotationMatrix = getRotationMatrix2D(center, 90, scale);
         warpAffine(rotatedImg, rotatedImg, rotationMatrix, rotatedImg.size() );
         transform(pts, pts, rotationMatrix);
