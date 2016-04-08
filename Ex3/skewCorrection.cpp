@@ -33,7 +33,7 @@ bool lineCmp(const Vec2f& a, const Vec2f& b) {
 }
 
 // Point comparison function
-bool pointCmp(const Point& a, const Point& b) {
+bool pointCmp(const Point2f& a, const Point2f& b) {
     return a.x + a.y < b.x + b.y;
 }
 
@@ -138,7 +138,7 @@ int main(int argc, char* argv[]) {
         mls.push_back(ml);
     }
 
-    vector<Point> pts;
+    vector<Point2f> pts;
     // Calculate line-line intersection.
     // Ref: https://en.wikipedia.org/wiki/Line–line_intersection
     for ( int i = 0; i < 2; ++i ) {
@@ -154,7 +154,7 @@ int main(int argc, char* argv[]) {
                 y = (a * d - b * c) / (a - b);
             }
             printf("Point: (%lf, %lf)\n", x, y);
-            Point pt1;
+            Point2f pt1;
             pt1.x = x;
             pt1.y = y;
             pts.push_back(pt1);
@@ -163,29 +163,69 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    sort(pts.begin(), pts.end(), pointCmp);
     Point center;
-    center.x = (pts[0].x + pts[3].x) / 2;
-    center.y = (pts[0].y + pts[3].y) / 2;
-    // line(srcImg, center, center, Scalar(0, 255, 0), 12, CV_AA);
+    center.x = (pts[0].x + pts[1].x + pts[2].x + pts[3].x) / 4;
+    center.y = (pts[0].y + pts[1].y + pts[2].y + pts[3].y) / 4;
+    line(srcImg, center, center, Scalar(0, 255, 0), 12, CV_AA);
 
     Mat rotatedImg;
     Mat rotationMatrix;
     srcImg.copyTo(rotatedImg);
 
-    cout << "RG: " << rotationAngle << endl;
+    cout << "Rotation angle: " << rotationAngle << endl;
 
     // Ref: http://docs.opencv.org/2.4/doc/tutorials/imgproc/imgtrans/warp_affine/warp_affine.html
     rotationMatrix = getRotationMatrix2D(center, rotationAngle, 1);
     warpAffine(rotatedImg, rotatedImg, rotationMatrix, rotatedImg.size() );
+    // Map the points to the rotated image
+    transform(pts, pts, rotationMatrix);
 
     if ( srcImg.rows < srcImg.cols ) {
         // Rotate 90 degree clockwise for horizontal papers and diminish their sizes
         rotationMatrix = getRotationMatrix2D(center, 90, 0.7);
         warpAffine(rotatedImg, rotatedImg, rotationMatrix, rotatedImg.size() );
+        transform(pts, pts, rotationMatrix);
     }
-    
-    imshow("Display Image", rotatedImg);
+
+    // Sort the points
+    sort(pts.begin(), pts.end(), pointCmp);
+    cout << "Four new points: " << endl
+    for ( int i = 0; i < pts.size(); ++i ) {
+        cout << pts[i].x << ", " << pts[i].y << endl;
+    }
+
+    // Set standard points
+    const int lx = 130;
+    const int ly = 160;
+    const int rx = 510;
+    const int ry = 720;
+    Point2f topLeft;
+    topLeft.x = lx;
+    topLeft.y = ly;
+    Point2f topRight;
+    topRight.x = rx;
+    topRight.y = ly;
+    Point2f bottomLeft;
+    bottomLeft.x = lx;
+    bottomLeft.y = ry;
+    Point2f bottomRight;
+    bottomRight.x = rx;
+    bottomRight.y = ry;
+    vector<Point2f> standardPoints;
+    standardPoints.push_back(topLeft);
+    standardPoints.push_back(topRight);
+    standardPoints.push_back(bottomLeft);
+    standardPoints.push_back(bottomRight);
+
+    // Ref: http://docs.opencv.org/2.4/modules/imgproc/doc/geometric_transformations.html
+    // Assertion failed: https://groups.google.com/forum/?fromgroups=#!topic/android-opencv/CPDMJsmYVBI
+    Mat perspectiveMatrix;
+    perspectiveMatrix = getPerspectiveTransform(pts, standardPoints);
+
+    Mat perspectiveImg(800, 800, rotatedImg.type());
+    warpPerspective(rotatedImg, perspectiveImg, perspectiveMatrix, perspectiveImg.size());
+
+    imshow("Display Image", perspectiveImg);
     waitKey(0);
     return 0;
 }
