@@ -62,16 +62,16 @@ int main(int argc, char* argv[]) {
     blur(srcGray, srcBlur, Size(3, 3));
 
     // Set threshold for Canny
-    int lowThreshold = 125;
-    int highThreshold = 500;
-    int kernel_size = 3;
+    const int lowThreshold = 125;
+    const int highThreshold = 500;
+    const int kernel_size = 3;
     Canny(srcBlur, edge, lowThreshold, highThreshold, kernel_size);
 
     // Ref: http://docs.opencv.org/2.4/doc/tutorials/imgproc/imgtrans/hough_lines/hough_lines.html
     // Set parameters for hough transform
-    float rho = 1;
-    float theta = CV_PI / 100;
-    int threshold = 97;
+    const float rho = 1;
+    const float theta = CV_PI / 100;
+    const int threshold = 97;
     vector<Vec2f> lines;
     vector<myLine> mls;
 
@@ -100,14 +100,14 @@ int main(int argc, char* argv[]) {
         float rho = lines[i][0], theta = lines[i][1];
 
         // Eliminate duplicates.
-        float deltaRho = 100;
-        float deltaTheta = 0.25;
+        const float deltaRho = 100;
+        const float deltaTheta = 0.25;
 
         if ( i > 0 && abs(rho - lines[i - 1][0]) < deltaRho &&
             ( abs(CV_PI - (rho + lines[i - 1][0])) < deltaRho || abs(theta - lines[i - 1][1]) < deltaTheta ) ) {
             continue;
         }
-        cout << rho << " " << theta << endl;
+        cout << "rho: " << rho << "  theta: " << theta << endl;
 
         // Produce two lines on the line
         Point pt1, pt2;
@@ -146,6 +146,7 @@ int main(int argc, char* argv[]) {
             double a = mls[i].m, b = mls[j].m;
             double c = mls[i].c, d = mls[j].c;
             double x, y;
+            // Slope = inf
             if ( mls[i].vertical == 1 ) {
                 x = c;
                 y = b * c + d;
@@ -163,6 +164,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    // Calculate the center of the paper
     Point center;
     center.x = (pts[0].x + pts[1].x + pts[2].x + pts[3].x) / 4;
     center.y = (pts[0].y + pts[1].y + pts[2].y + pts[3].y) / 4;
@@ -170,26 +172,26 @@ int main(int argc, char* argv[]) {
 
     Mat rotatedImg;
     Mat rotationMatrix;
-    srcImg.copyTo(rotatedImg);
 
     cout << "Rotation angle: " << rotationAngle << endl;
 
     // Ref: http://docs.opencv.org/2.4/doc/tutorials/imgproc/imgtrans/warp_affine/warp_affine.html
     rotationMatrix = getRotationMatrix2D(center, rotationAngle, 1);
-    warpAffine(rotatedImg, rotatedImg, rotationMatrix, rotatedImg.size() );
+    warpAffine(srcImg, rotatedImg, rotationMatrix, rotatedImg.size() );
     // Map the points to the rotated image
     transform(pts, pts, rotationMatrix);
 
     if ( srcImg.rows < srcImg.cols ) {
         // Rotate 90 degree clockwise for horizontal papers and diminish their sizes
-        rotationMatrix = getRotationMatrix2D(center, 90, 0.7);
+        const float scale = 0.7;
+        rotationMatrix = getRotationMatrix2D(center, 90, scale);
         warpAffine(rotatedImg, rotatedImg, rotationMatrix, rotatedImg.size() );
         transform(pts, pts, rotationMatrix);
     }
 
-    // Sort the points
+    // Sort the points to determine the position of each point
     sort(pts.begin(), pts.end(), pointCmp);
-    cout << "Four new points: " << endl
+    cout << "Four new points: " << endl;
     for ( int i = 0; i < pts.size(); ++i ) {
         cout << pts[i].x << ", " << pts[i].y << endl;
     }
@@ -199,6 +201,8 @@ int main(int argc, char* argv[]) {
     const int ly = 160;
     const int rx = 510;
     const int ry = 720;
+    const int width = rx - lx;
+    const int height = ry - ly;
     Point2f topLeft;
     topLeft.x = lx;
     topLeft.y = ly;
@@ -225,7 +229,12 @@ int main(int argc, char* argv[]) {
     Mat perspectiveImg(800, 800, rotatedImg.type());
     warpPerspective(rotatedImg, perspectiveImg, perspectiveMatrix, perspectiveImg.size());
 
-    imshow("Display Image", perspectiveImg);
+    // Ref: http://stackoverflow.com/questions/8267191/how-to-crop-a-cvmat-in-opencv
+    Rect myROI(lx, ly, width, height);
+
+    Mat croppedImg = perspectiveImg(myROI);
+
+    imshow("Display Image", croppedImg);
     waitKey(0);
     return 0;
 }
