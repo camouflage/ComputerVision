@@ -20,7 +20,7 @@ struct myLine {
 // Line comparison function based on theta.
 bool lineCmp(const Vec2f& a, const Vec2f& b) {
     const double threshold = 0.1;
-    if ( abs(a[1] - b[1]) < threshold || abs(CV_PI - (a[1] + b[1])) < threshold ) {
+    if ( abs(a[1] - b[1]) < threshold  ) {
         return a[0] < b[0];
     }
     return a[1] < b[1];
@@ -82,24 +82,31 @@ int main(int argc, char* argv[]) {
     int last = lines.size() - 1;
     const double minTheta = 0.1;
     const double maxTheta = 3.1;
+    const double rhoThreshold = 50;
     /* 
      * If the first line has theta near zero while the last line has theta near PI,
      * they are almost parallel, so move the last line to the front.
      */
     while ( lines[0][1] <= minTheta && lines[last][1] >= maxTheta ) {
         vector<Vec2f>::iterator it = lines.begin() + 1;
+        for ( size_t i = 1; i < last; ++i ) {
+            if ( lines[i][1] <= minTheta && abs(lines[0][0] - lines[i][0]) < rhoThreshold ) {
+                ++it;
+            }
+        }
         lines.insert(it, lines[last]);
         it = lines.end() - 1;
         lines.erase(it);
     }
 
-    /*
-    cout << "------------------" << endl; 
+
+    cout << "------------------" << endl << "All lines:" << endl; 
     for ( size_t i = 0; i < lines.size(); i++ ) {
         cout << lines[i][0] << " " << lines[i][1] << endl;
     }
-    cout << "------------------" << endl;
-    */
+    cout << "------------------" << endl << endl;
+    
+    cout << "------------------" << endl << "Line equations:" << endl;
 
     for ( size_t i = 0; i < lines.size(); i++ ) {
         float rho = lines[i][0], theta = lines[i][1];
@@ -108,7 +115,7 @@ int main(int argc, char* argv[]) {
         const float deltaRho = 100;
         const float deltaTheta = 0.25;
                       //  When rhos are very close and
-        if ( i > 0 && abs(rho - lines[i - 1][0]) < deltaRho &&
+        if ( i > 0 && abs(abs(rho) - abs(lines[i - 1][0])) < deltaRho &&
             ( abs(CV_PI - (theta + lines[i - 1][1])) < deltaTheta || abs(theta - lines[i - 1][1]) < deltaTheta ) ) {
             // When one theta is near PI and the other is near 0 or thetas are very close.
             vector<Vec2f>::iterator it = lines.begin() + i;
@@ -160,11 +167,12 @@ int main(int argc, char* argv[]) {
         mls.push_back(ml);
     }
 
-    cout << endl;
+    cout << "------------------" << endl << endl;
 
 
     /*** Output point coordinates ***/
 
+    cout << "------------------" << endl << "All points:" << endl;
     vector<Point2f> pts;
     // Calculate line-line intersection.
     // Ref: https://en.wikipedia.org/wiki/Line–line_intersection
@@ -190,6 +198,8 @@ int main(int argc, char* argv[]) {
             line(srcImg, pt1, pt1, Scalar(255, 0, 0), 12, CV_AA);
         }
     }
+
+    cout << "------------------" << endl << endl;
 
 
     /*** Deskew ***/
