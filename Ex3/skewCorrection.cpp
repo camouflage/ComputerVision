@@ -8,25 +8,19 @@
 using namespace cv;
 using namespace std;
 
-// Store line info
+
+// Store line info.
 struct myLine {
     double m; // Slope of the line
     double c; // Intercept of the line
     bool vertical; // True if the line is parallel to y-axis
 };
 
-/*
-void myHoughLines(const Mat& img, vector<Vec2f>& lines, float rho, float theta, int threshold) {
-    float irho = 1 / rho;
-    int width = img.size().width;
-    int height = img.size().height;  
-}
-*/
 
-// Line comparison function based on theta
+// Line comparison function based on theta.
 bool lineCmp(const Vec2f& a, const Vec2f& b) {
     const double threshold = 0.1;
-    if ( abs(a[1] - b[1]) < threshold ) {
+    if ( abs(a[1] - b[1]) < threshold || abs(CV_PI - (a[1] + b[1])) < threshold ) {
         return a[0] < b[0];
     }
     return a[1] < b[1];
@@ -36,6 +30,7 @@ bool lineCmp(const Vec2f& a, const Vec2f& b) {
 bool pointCmp(const Point2f& a, const Point2f& b) {
     return a.x + a.y < b.x + b.y;
 }
+
 
 // Ref: http://docs.opencv.org/2.4/doc/tutorials/introduction/linux_gcc_cmake/linux_gcc_cmake.html#linux-gcc-usage
 int main(int argc, char* argv[]) {
@@ -58,10 +53,10 @@ int main(int argc, char* argv[]) {
     // Transfrom to gray scale.
     cvtColor(srcImg, srcGray, CV_BGR2GRAY);
 
-    // Blur the image to erase some noise
+    // Blur the image to erase some noise.
     blur(srcGray, srcBlur, Size(3, 3));
 
-    // Set threshold for Canny
+    // Set thresholds for Canny
     const int lowThreshold = 125;
     const int highThreshold = 500;
     const int kernel_size = 3;
@@ -76,14 +71,21 @@ int main(int argc, char* argv[]) {
     vector<myLine> mls;
 
     HoughLines(edge, lines, rho, theta, threshold, 0, 0);
-    // myHoughLines(edge, lines, rho, theta, threshold);
     
-    // Sort lines based on theta
+
+    /*** Pre-process lines and output line equations ***/
+
+    // Sort lines based primarily on theta
     sort(lines.begin(), lines.end(), lineCmp);
-    // Move lines with theta near 3.1 that is vertical lines to the front
+
+    // Move lines with theta near 3.1, which is vertical lines to the front.
     int last = lines.size() - 1;
     const double minTheta = 0.1;
     const double maxTheta = 3.1;
+    /* 
+     * If the first line has theta near zero while the last line has theta near PI,
+     * they are almost parallel, so move the last line to the front.
+     */
     while ( lines[0][1] <= minTheta && lines[last][1] >= maxTheta ) {
         vector<Vec2f>::iterator it = lines.begin() + 1;
         lines.insert(it, lines[last]);
@@ -91,43 +93,45 @@ int main(int argc, char* argv[]) {
         lines.erase(it);
     }
 
-    double rotationAngle = lines[0][1] * 180 / CV_PI;
-    const double rotationThreshold = 0.1;
-    // Rotate 90 degree clockwise for horizontal papers, e.g. 2.jpg and 4.jpg
-    if ( lines[0][1] > rotationThreshold ) {
-        rotationAngle -= 90;
+    /*
+    cout << "------------------" << endl; 
+    for ( size_t i = 0; i < lines.size(); i++ ) {
+        cout << lines[i][0] << " " << lines[i][1] << endl;
     }
+    cout << "------------------" << endl;
+    */
 
     for ( size_t i = 0; i < lines.size(); i++ ) {
         float rho = lines[i][0], theta = lines[i][1];
 
-        // Eliminate lines that are close to each other
+        // Eliminate lines that are close to each other.
         const float deltaRho = 100;
         const float deltaTheta = 0.25;
-                      //  When rhos are very close
+                      //  When rhos are very close and
         if ( i > 0 && abs(rho - lines[i - 1][0]) < deltaRho &&
             ( abs(CV_PI - (theta + lines[i - 1][1])) < deltaTheta || abs(theta - lines[i - 1][1]) < deltaTheta ) ) {
-            // When one theta is near 3.1 and the other is near 0 or thetas are very close
+            // When one theta is near PI and the other is near 0 or thetas are very close.
             vector<Vec2f>::iterator it = lines.begin() + i;
             lines.erase(it);
             --i;
             continue;
         }
         
-        // Eliminate wrong lines
+        // Eliminate wrong lines.
         if ( i > 0 && i < lines.size() - 1 &&
-             abs(theta - lines[i - 1][1]) > deltaTheta && abs(theta - lines[i + 1][1]) > deltaTheta ) {
-            cout << abs(theta - lines[i - 1][1]) << " " << abs(theta - lines[i + 1][1]) << endl;
+             // When the line is not parallel to the two sides
+             abs(theta - lines[i - 1][1]) > deltaTheta && abs(theta - lines[i + 1][1]) > deltaTheta &&
+             abs(CV_PI - (theta + lines[i - 1][1])) > deltaTheta ) {
+             // When one theta is near PI and the other is near 0
             vector<Vec2f>::iterator it = lines.begin() + i;
             lines.erase(it);
             --i;
             continue;
         }
-        
         
         cout << "rho: " << rho << "  theta: " << theta << endl;
 
-        // Produce two lines on the line
+        // Draw a line by two points.
         Point pt1, pt2;
         double a = cos(theta), b = sin(theta);
         double x0 = a * rho, y0 = b * rho;
@@ -135,7 +139,7 @@ int main(int argc, char* argv[]) {
         pt1.y = cvRound(y0 + 1000 * (a));
         pt2.x = cvRound(x0 - 1000 * (-b));
         pt2.y = cvRound(y0 - 1000 * (a));
-        // Draw red lines
+        // Draw red edges.
         line(srcImg, pt1, pt2, Scalar(0, 0, 255), 3, CV_AA);
 
         struct myLine ml;
@@ -146,7 +150,7 @@ int main(int argc, char* argv[]) {
             printf("Line equation: x = %lf\n", rho);
         } else {
             ml.vertical = 0;
-            // m for slope and c for y-intercept
+            // m for slope and c for y-intercept.
             double m = -a / b, c = rho / b;
             ml.m = m;
             ml.c = c;
@@ -156,6 +160,11 @@ int main(int argc, char* argv[]) {
         mls.push_back(ml);
     }
 
+    cout << endl;
+
+
+    /*** Output point coordinates ***/
+
     vector<Point2f> pts;
     // Calculate line-line intersection.
     // Ref: https://en.wikipedia.org/wiki/Line–line_intersection
@@ -164,7 +173,7 @@ int main(int argc, char* argv[]) {
             double a = mls[i].m, b = mls[j].m;
             double c = mls[i].c, d = mls[j].c;
             double x, y;
-            // Slope = inf
+            // If slope = inf
             if ( mls[i].vertical == 1 ) {
                 x = c;
                 y = b * c + d;
@@ -177,12 +186,22 @@ int main(int argc, char* argv[]) {
             pt1.x = x;
             pt1.y = y;
             pts.push_back(pt1);
-            // Draw blue points
+            // Draw blue corner points
             line(srcImg, pt1, pt1, Scalar(255, 0, 0), 12, CV_AA);
         }
     }
 
-    // Calculate the center of the paper
+
+    /*** Deskew ***/
+
+    double rotationAngle = lines[0][1] / CV_PI * 180;
+    const double rotationThreshold = 0.1;
+    // Rotate 90 degree clockwise for horizontal papers, e.g. 2.jpg and 4.jpg.
+    if ( lines[0][1] > rotationThreshold ) {
+        rotationAngle -= 90;
+    }
+
+    // Calculate the center of the paper, which is later used for rotation.
     Point center;
     center.x = (pts[0].x + pts[1].x + pts[2].x + pts[3].x) / 4;
     center.y = (pts[0].y + pts[1].y + pts[2].y + pts[3].y) / 4;
@@ -191,7 +210,7 @@ int main(int argc, char* argv[]) {
     Mat rotatedImg;
     Mat rotationMatrix;
 
-    cout << "Rotation angle: " << rotationAngle << endl;
+    // cout << endl << "Rotation angle: " << rotationAngle << endl;
 
     // Ref: http://docs.opencv.org/2.4/doc/tutorials/imgproc/imgtrans/warp_affine/warp_affine.html
     rotationMatrix = getRotationMatrix2D(center, rotationAngle, 1);
@@ -200,19 +219,28 @@ int main(int argc, char* argv[]) {
     transform(pts, pts, rotationMatrix);
 
     if ( srcImg.rows < srcImg.cols ) {
-        // Rotate 90 degree clockwise for horizontal papers and diminish their sizes
+        /*
+         * Rotate 90 degree clockwise for horizontal papers and diminish their sizes.
+         * Otherwise, the papers will exceed the bound of the images.
+         */
         const float scale = 0.75;
         rotationMatrix = getRotationMatrix2D(center, 90, scale);
         warpAffine(rotatedImg, rotatedImg, rotationMatrix, rotatedImg.size() );
         transform(pts, pts, rotationMatrix);
     }
 
-    // Sort the points to determine the position of each point
+
+    /*** transform to rectangle ***/
+
+    // Sort the points to determine the position of each point.
     sort(pts.begin(), pts.end(), pointCmp);
+
+    /*
     cout << "Four new points: " << endl;
     for ( int i = 0; i < pts.size(); ++i ) {
         cout << pts[i].x << ", " << pts[i].y << endl;
     }
+    */
 
     // Set standard points
     const int lx = 130;
@@ -248,11 +276,13 @@ int main(int argc, char* argv[]) {
     warpPerspective(rotatedImg, perspectiveImg, perspectiveMatrix, perspectiveImg.size());
 
     // Ref: http://stackoverflow.com/questions/8267191/how-to-crop-a-cvmat-in-opencv
+    // Region of interest, which is used to crop the image.
     Rect myROI(lx, ly, width, height);
 
     Mat croppedImg = perspectiveImg(myROI);
 
     imshow("Display Image", croppedImg);
     waitKey(0);
+    
     return 0;
 }
