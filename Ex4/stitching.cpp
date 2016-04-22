@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
 
 
     /* SIFT */
-    const int numberOfKp = 500;
+    const int numberOfKp = 100;
     SiftFeatureDetector detector(numberOfKp);
     Mat outImg1;
     Mat outImg2;
@@ -47,6 +47,7 @@ int main(int argc, char* argv[]) {
     detector.detect(vsrcImg[1], kp2);
     drawKeypoints(vsrcImg[1], kp2, outImg2);
 
+    /*
     // Ref: http://docs.opencv.org/trunk/d2/d29/classcv_1_1KeyPoint.html#gsc.tab=0
     vector<KeyPoint>::iterator it;
     for( it = kp1.begin(); it != kp1.end(); ++it ) {
@@ -55,6 +56,7 @@ int main(int argc, char* argv[]) {
     for( it = kp2.begin(); it != kp2.end(); ++it ) {
         pt2.push_back(it->pt);
     }
+    */
 
 
     /* Descriptors */
@@ -73,7 +75,7 @@ int main(int argc, char* argv[]) {
 
     /* Filter out good matches */
     double max_dist = 0;
-    double min_dist = 100;
+    double min_dist = 200;
     for ( int i = 0; i < descriptors1.rows; i++ ) {
         double dist = matches[i].distance;
         if ( dist < min_dist ) {
@@ -91,22 +93,39 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    /* Get matched points */
+    // Ref: http://stackoverflow.com/questions/8436647/opencv-getting-pixel-coordinates-from-feature-matching
+    vector<Point2f> matchedPt1;
+    vector<Point2f> matchedPt2;
+    for ( int i = 0; i < good_matches.size(); ++i ) {
+        int idx1 = good_matches[i].queryIdx;
+        int idx2 = good_matches[i].trainIdx;
+        matchedPt1.push_back(kp1[idx1].pt);
+        matchedPt2.push_back(kp2[idx2].pt);
+    }
+
+    /*
+    for ( int i = 0; i < matchedPt1.size(); ++i ) {
+        cout << matchedPt1[i] << " " << matchedPt2[i] << endl;
+    }
+    */
 
     Mat matchedImg;
     drawMatches(vsrcImg[0], kp1, vsrcImg[1], kp2, good_matches, matchedImg,
                 Scalar::all(-1), Scalar::all(-1),
-                vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+                vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
 
-    /*
-    Mat homography = findHomography(pt2, pt1, CV_RANSAC);
+
+    /* Homography */
+    Mat homography = findHomography(matchedPt2, matchedPt1, CV_RANSAC);
     //vector<Point2f> transformedPt;
     //perspectiveTransform(pt2, transformedPt, homography);
 
     Mat perspectiveImg;
     warpPerspective(outImg2, perspectiveImg, homography, perspectiveImg.size());
-    */
 
-    imshow("Img", matchedImg);
+    imshow("Img1", outImg1);
+    imshow("Img2", perspectiveImg);
     waitKey(0);
     
     return 0;
