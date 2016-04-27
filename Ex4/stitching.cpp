@@ -12,7 +12,7 @@
 using namespace cv;
 using namespace std;
 
-
+/*
 // Ref: http://blog.csdn.net/pi9nc/article/details/9251387
 void blending(Mat left, Mat right, vector<Point2f>& leftPt) {
     int xLeft = min(leftPt[0].x, leftPt[1].x);
@@ -38,10 +38,72 @@ void blending(Mat left, Mat right, vector<Point2f>& leftPt) {
         }
     }
 }
+*/
+
+void ransac(const vector<Point2f>& matchedPt0, const vector<Point2f>& matchedPt1,
+            vector<Point2f>& bestPt0, vector<Point2f>& bestPt1) {
+
+    const int iterations = 500;
+    const int samples = 4;
+    const int numberOfMatches = matchedPt0.size();
+    int maxInliners = 0;
+
+    for ( int it = 0; it < iterations; ++it ) {
+        // Randomly choose samples
+        set<int> index;
+        for ( int i = 0; i < samples; ) {
+            int r = rand() % numberOfMatches;
+            if ( index.count(r) == 0 ) {
+                index.insert(r);
+                ++i;
+            }
+        }
+
+        vector<Point2f> filtered0;
+        vector<Point2f> filtered1;
+        set<int>::iterator ite = index.begin();
+        for ( ; ite != index.end(); ++ite ) {
+            filtered0.push_back(matchedPt0[*ite]);
+            filtered1.push_back(matchedPt1[*ite]);
+        }
+
+        // Compute H
+        Mat homography = findHomography(filtered0, filtered1, 0);
+
+        vector<Point2f> transformedMatched;
+        // Transform pt0 to pt1 based on H
+        perspectiveTransform(matchedPt0, transformedMatched, homography);
+
+        // Count inliners
+        const int filterThreshold = 3;
+        int inliners = 0;
+        for ( int i = 0; i < numberOfMatches; ++i ) {
+            if ( norm(transformedMatched[i] - matchedPt1[i]) < filterThreshold ) {
+                ++inliners;
+                // cout << transformedMatched[i] << " " << matchedPt1[i] << endl;
+            }
+        }
+
+        // Choose greatest inliners
+        if ( inliners > maxInliners ) {
+            maxInliners = inliners;
+            bestPt0.clear();
+            bestPt1.clear();
+            for ( int i = 0; i < numberOfMatches; ++i ) {
+                if ( norm(transformedMatched[i] - matchedPt1[i]) < filterThreshold ) {
+                    bestPt0.push_back(matchedPt0[i]);
+                    bestPt1.push_back(matchedPt1[i]);
+                }
+            }
+        }
+    }
+
+    cout << "Max inliner ratio: " << maxInliners << " / " << numberOfMatches << endl;
+}
 
 
 // Stitching
-void stitch(vector<Point2f>& matchedPt0, vector<Point2f>& matchedPt1, Mat img0, Mat img1) {
+void stitch(const vector<Point2f>& matchedPt0, const vector<Point2f>& matchedPt1, Mat img0, Mat img1) {
     Mat homography = findHomography(matchedPt1, matchedPt0, CV_RANSAC);
     Mat perspectiveImg;
     warpPerspective(img1, perspectiveImg, homography, Size(img0.cols + img1.cols, img0.rows));
@@ -71,7 +133,7 @@ void stitch(vector<Point2f>& matchedPt0, vector<Point2f>& matchedPt1, Mat img0, 
 
 
 int main(int argc, char* argv[]) {
-    /* Read in image */
+    // Read in image
     if ( argc < 3 ) {
         cout << "Please specify the path of the photo you want to stitch!" << endl;
         return -1;
@@ -80,7 +142,6 @@ int main(int argc, char* argv[]) {
     vector<Mat> vsrcImg;
     Mat srcImg;
     for ( int i = 0; i < argc - 1; ++i ) {
-        // Load as gray scale.
         srcImg = imread(argv[i + 1]);
         if ( srcImg.empty() ) {
             cout << "Error! Failed to load " << argv[i + 1] << endl;
@@ -90,52 +151,37 @@ int main(int argc, char* argv[]) {
     }
 
 
-    /* SIFT */
+    // SIFT
     const int numberOfKp = 100;
     SiftFeatureDetector detector(numberOfKp);
     Mat outImg0;
     Mat outImg1;
+    vector<KeyPoint> kp0;
     vector<KeyPoint> kp1;
-    vector<Point2f> pt1;
-    vector<KeyPoint> kp2;
-    vector<Point2f> pt2;
 
     cvtColor(vsrcImg[0], outImg0, CV_BGR2GRAY);
     cvtColor(vsrcImg[1], outImg1, CV_BGR2GRAY);
-    detector.detect(outImg0, kp1);
-    //drawKeypoints(vsrcImg[0], kp1, outImg0);
-    detector.detect(outImg1, kp2);
-    //drawKeypoints(vsrcImg[1], kp2, outImg1);
-
-    /*
-    // Ref: http://docs.opencv.org/trunk/d2/d29/classcv_1_1KeyPoint.html#gsc.tab=0
-    vector<KeyPoint>::iterator it;
-    for( it = kp1.begin(); it != kp1.end(); ++it ) {
-        pt1.push_back(it->pt);
-    }
-    for( it = kp2.begin(); it != kp2.end(); ++it ) {
-        pt2.push_back(it->pt);
-    }
-    */
+    detector.detect(outImg0, kp0);
+    //drawKeypoints(vsrcImg[0], kp0, outImg0);
+    detector.detect(outImg1, kp1);
+    //drawKeypoints(vsrcImg[1], kp1, outImg1);
 
 
-    /* Descriptors */
+    // Descriptors
     SiftDescriptorExtractor extractor;
     Mat descriptors1, descriptors2;
+    extractor.compute(outImg0, kp0, descriptors1);
+    extractor.compute(outImg1, kp1, descriptors2);
 
-    extractor.compute(outImg0, kp1, descriptors1);
-    extractor.compute(outImg1, kp2, descriptors2);
-
-
-    /* Match descriptors */
+    // Match descriptors
     FlannBasedMatcher matcher;
     vector<DMatch> matches;
     matcher.match(descriptors1, descriptors2, matches);
 
 
-    /* Filter out good matches */
+    // Filter out good matches
     double max_dist = 0;
-    double min_dist = 200;
+    double min_dist = 300;
     for ( int i = 0; i < descriptors1.rows; i++ ) {
         double dist = matches[i].distance;
         if ( dist < min_dist ) {
@@ -154,90 +200,39 @@ int main(int argc, char* argv[]) {
     }
 
 
-    /* Get matched points */
+    // Get good matched points
     // Ref: http://stackoverflow.com/questions/8436647/opencv-getting-pixel-coordinates-from-feature-matching
     vector<Point2f> matchedPt0;
     vector<Point2f> matchedPt1;
     for ( int i = 0; i < good_matches.size(); ++i ) {
         int idx1 = good_matches[i].queryIdx;
         int idx2 = good_matches[i].trainIdx;
-        matchedPt0.push_back(kp1[idx1].pt);
-        matchedPt1.push_back(kp2[idx2].pt);
+        matchedPt0.push_back(kp0[idx1].pt);
+        matchedPt1.push_back(kp1[idx2].pt);
     }
+    cout << "Good matches ratio:" << good_matches.size() << " / " << matches.size() << endl;
+
 
     Mat matchedImg;
-    drawMatches(vsrcImg[0], kp1, vsrcImg[1], kp2, good_matches, matchedImg,
+    drawMatches(vsrcImg[0], kp0, vsrcImg[1], kp1, good_matches, matchedImg,
                 Scalar::all(-1), Scalar::all(-1),
                 vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
+    imshow("match", matchedImg);
 
-    
-    /* Homography */
+
+    // RANSAC
+    ransac(matchedPt0, matchedPt1, matchedPt0, matchedPt1);
+
+    // Decide whether to switch
     int reverseCount = 0;
-    const int numberOfMatches = matchedPt0.size();
-
-    for ( int i = 0; i < numberOfMatches; ++i ) {
-        if ( matchedPt1[i].x > matchedPt0[i].x ) {
+    for ( int i = 0; i < matchedPt0.size(); ++i ) {
+        if ( matchedPt0[i].x < matchedPt1[i].x ) {
             ++reverseCount;
         }
     }
 
+    cout << reverseCount << endl;
 
-    const int iterations = 100;
-    const int samples = 4;
-    int maxInliners = 0;
-    vector<Point2f> bestPt0;
-    vector<Point2f> bestPt1;
-    for ( int it = 0; it < iterations; ++it ) {
-        set<int> index;
-        for ( int i = 0; i < samples; ) {
-            int r = rand() % numberOfMatches;
-            if ( index.count(r) == 0 ) {
-                index.insert(r);
-                ++i;
-            }
-        }
-
-        vector<Point2f> filtered0;
-        vector<Point2f> filtered1;
-
-        set<int>::iterator ite = index.begin();
-        for ( ; ite != index.end(); ++ite ) {
-            filtered0.push_back(matchedPt0[*ite]);
-            filtered1.push_back(matchedPt1[*ite]);
-        }
-
-        Mat homography = findHomography(filtered0, filtered1, 0);
-
-        vector<Point2f> transformedMatched;
-        perspectiveTransform(matchedPt0, transformedMatched, homography);
-
-        const int filterThreshold = 3;
-        int inliners = 0;
-        for ( int i = 0; i < numberOfMatches; ++i ) {
-            if ( norm(transformedMatched[i] - matchedPt1[i]) < filterThreshold ) {
-                ++inliners;
-                // cout << transformedMatched[i] << " " << matchedPt1[i] << endl;
-            }
-        }
-
-        if ( inliners > maxInliners ) {
-            maxInliners = inliners;
-            bestPt0.clear();
-            bestPt1.clear();
-            for ( int i = 0; i < numberOfMatches; ++i ) {
-                if ( norm(transformedMatched[i] - matchedPt1[i]) < filterThreshold ) {
-                    bestPt0.push_back(matchedPt0[i]);
-                    bestPt1.push_back(matchedPt1[i]);
-                }
-            }
-        }
-    }
-
-    cout << "Max inliner ratio: " << maxInliners << "/" << numberOfMatches;
-    Mat besthomography = findHomography(bestPt0, bestPt1, 0);
-
-
-    /*
     const double reverseThreshold = 0.75;
     if ( reverseCount > reverseThreshold * matchedPt0.size() ) {
         cout << "Reverse: " << endl;
@@ -245,8 +240,9 @@ int main(int argc, char* argv[]) {
     } else {
         stitch(matchedPt0, matchedPt1, vsrcImg[0], vsrcImg[1]);
     }
-    */
-    imshow("match", matchedImg);
+
+
     waitKey(0);
+
     return 0;
 }
