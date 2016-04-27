@@ -12,33 +12,6 @@
 using namespace cv;
 using namespace std;
 
-/*
-// Ref: http://blog.csdn.net/pi9nc/article/details/9251387
-void blending(Mat left, Mat right, vector<Point2f>& leftPt) {
-    int xLeft = min(leftPt[0].x, leftPt[1].x);
-    double width = left.cols - xLeft;
-    double alpha;
-    const int blackThreshold = 10;
-
-    for ( int i = 0; i < right.rows; ++i ) {
-        for ( int j = xLeft; j < left.cols; ++j ) {
-            int b = right.at<Vec3b>(j, i)[0];
-            int g = right.at<Vec3b>(j, i)[1];
-            int r = right.at<Vec3b>(j, i)[2];
-            if ( b < blackThreshold && g < blackThreshold && r < blackThreshold ) {
-                alpha = 1;
-            } else {
-                alpha = (width - (j - xLeft)) / width;
-                //alpha = 0;
-            }
-
-            left.at<Vec3b>(j, i)[0] = left.at<Vec3b>(j, i)[0] * alpha + right.at<Vec3b>(j, i)[0] * (1 - alpha);
-            left.at<Vec3b>(j, i)[1] = left.at<Vec3b>(j, i)[1] * alpha + right.at<Vec3b>(j, i)[1] * (1 - alpha);
-            left.at<Vec3b>(j, i)[2] = left.at<Vec3b>(j, i)[2] * alpha + right.at<Vec3b>(j, i)[2] * (1 - alpha);
-        }
-    }
-}
-*/
 
 void ransac(const vector<Point2f>& matchedPt0, const vector<Point2f>& matchedPt1,
             vector<Point2f>& bestPt0, vector<Point2f>& bestPt1) {
@@ -101,9 +74,34 @@ void ransac(const vector<Point2f>& matchedPt0, const vector<Point2f>& matchedPt1
     cout << "Max inliner ratio: " << maxInliners << " / " << numberOfMatches << endl;
 }
 
+// Ref: http://blog.csdn.net/pi9nc/article/details/9251387
+void blending(Mat left, Mat right, vector<Point2f>& leftPt) {
+    int xLeft = min(leftPt[0].x, leftPt[1].x);
+    double width = left.cols - xLeft;
+    double alpha;
+    const int blackThreshold = 10;
+
+    for ( int i = 0; i < right.rows; ++i ) {
+        for ( int j = xLeft; j < left.cols; ++j ) {
+            int b = right.at<Vec3b>(j, i)[0];
+            int g = right.at<Vec3b>(j, i)[1];
+            int r = right.at<Vec3b>(j, i)[2];
+            if ( b < blackThreshold && g < blackThreshold && r < blackThreshold ) {
+                alpha = 1;
+            } else {
+                alpha = (width - (j - xLeft)) / width;
+                //alpha = 0;
+            }
+
+            left.at<Vec3b>(j, i)[0] = left.at<Vec3b>(j, i)[0] * alpha + right.at<Vec3b>(j, i)[0] * (1 - alpha);
+            left.at<Vec3b>(j, i)[1] = left.at<Vec3b>(j, i)[1] * alpha + right.at<Vec3b>(j, i)[1] * (1 - alpha);
+            left.at<Vec3b>(j, i)[2] = left.at<Vec3b>(j, i)[2] * alpha + right.at<Vec3b>(j, i)[2] * (1 - alpha);
+        }
+    }
+}
 
 // Stitching
-void stitch(const vector<Point2f>& matchedPt0, const vector<Point2f>& matchedPt1, Mat img0, Mat img1) {
+Mat merge(const vector<Point2f>& matchedPt0, const vector<Point2f>& matchedPt1, Mat img0, Mat img1) {
     Mat homography = findHomography(matchedPt1, matchedPt0, CV_RANSAC);
     Mat perspectiveImg;
     warpPerspective(img1, perspectiveImg, homography, Size(img0.cols + img1.cols, img0.rows));
@@ -118,39 +116,24 @@ void stitch(const vector<Point2f>& matchedPt0, const vector<Point2f>& matchedPt1
 
     perspectiveTransform(leftCorner, transformedLeft, homography);
 
-    // blending(img0, perspectiveImg, transformedLeft);
+    //blending(img0, perspectiveImg, transformedLeft);
 
-    Mat final(img0.rows, img0.cols + img1.cols, CV_8UC3);
-    Mat right(final, Rect(0, 0, perspectiveImg.cols, perspectiveImg.rows));
+    Mat finalImg(img0.rows, img0.cols + img1.cols, CV_8UC3);
+    Mat right(finalImg, Rect(0, 0, perspectiveImg.cols, perspectiveImg.rows));
     perspectiveImg.copyTo(right);
-    Mat left(final, Rect(0, 0, img0.cols, img0.rows));
+    Mat left(finalImg, Rect(0, 0, img0.cols, img0.rows));
     img0.copyTo(left);
 
-    imshow("l", left);
-    imshow("r", right);
-    imshow("final", final);
+    //imshow("l", left);
+    //imshow("r", right);
+    //imshow("finalImg", finalImg);
+    //imwrite("./dataset1/temp.bmp", finalImg);
+
+    return finalImg;
 }
 
 
-int main(int argc, char* argv[]) {
-    // Read in image
-    if ( argc < 3 ) {
-        cout << "Please specify the path of the photo you want to stitch!" << endl;
-        return -1;
-    }
-
-    vector<Mat> vsrcImg;
-    Mat srcImg;
-    for ( int i = 0; i < argc - 1; ++i ) {
-        srcImg = imread(argv[i + 1]);
-        if ( srcImg.empty() ) {
-            cout << "Error! Failed to load " << argv[i + 1] << endl;
-            return -1;
-        }
-        vsrcImg.push_back(srcImg);
-    }
-
-
+Mat stitch(Mat srcImg0, Mat srcImg1) {
     // SIFT
     const int numberOfKp = 100;
     SiftFeatureDetector detector(numberOfKp);
@@ -159,12 +142,12 @@ int main(int argc, char* argv[]) {
     vector<KeyPoint> kp0;
     vector<KeyPoint> kp1;
 
-    cvtColor(vsrcImg[0], outImg0, CV_BGR2GRAY);
-    cvtColor(vsrcImg[1], outImg1, CV_BGR2GRAY);
+    cvtColor(srcImg0, outImg0, CV_BGR2GRAY);
+    cvtColor(srcImg1, outImg1, CV_BGR2GRAY);
     detector.detect(outImg0, kp0);
-    //drawKeypoints(vsrcImg[0], kp0, outImg0);
+    //drawKeypoints(srcImg0, kp0, outImg0);
     detector.detect(outImg1, kp1);
-    //drawKeypoints(vsrcImg[1], kp1, outImg1);
+    //drawKeypoints(srcImg1, kp1, outImg1);
 
 
     // Descriptors
@@ -214,10 +197,10 @@ int main(int argc, char* argv[]) {
 
 
     Mat matchedImg;
-    drawMatches(vsrcImg[0], kp0, vsrcImg[1], kp1, good_matches, matchedImg,
+    drawMatches(srcImg0, kp0, srcImg1, kp1, good_matches, matchedImg,
                 Scalar::all(-1), Scalar::all(-1),
                 vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
-    imshow("match", matchedImg);
+    // imshow("match", matchedImg);
 
 
     // RANSAC
@@ -236,16 +219,44 @@ int main(int argc, char* argv[]) {
 
     cout << reverseCount << endl;
 
+    Mat ret;
     const double reverseThreshold = 0.75;
     if ( reverseCount > reverseThreshold * filteredPt0.size() ) {
-        cout << "Reverse: " << endl;
-        stitch(filteredPt1, filteredPt0, vsrcImg[1], vsrcImg[0]);
+        // cout << "Reverse: " << endl;
+        ret = merge(filteredPt1, filteredPt0, srcImg1, srcImg0);
     } else {
-        stitch(filteredPt0, filteredPt1, vsrcImg[0], vsrcImg[1]);
+        ret = merge(filteredPt0, filteredPt1, srcImg0, srcImg1);
     }
 
+    return ret;
+}
 
+
+int main(int argc, char* argv[]) {
+    // Read in image
+    if ( argc < 3 ) {
+        cout << "Please specify the path of the photo you want to stitch!" << endl;
+        return -1;
+    }
+
+    vector<Mat> vsrcImg;
+    Mat srcImg;
+    for ( int i = 0; i < argc - 1; ++i ) {
+        srcImg = imread(argv[i + 1]);
+        if ( srcImg.empty() ) {
+            cout << "Error! Failed to load " << argv[i + 1] << endl;
+            return -1;
+        }
+        vsrcImg.push_back(srcImg);
+    }
+
+    Mat temp = vsrcImg[0];
+    for ( int i = 1; i < argc - 1; ++i ) {
+        temp = stitch(temp, vsrcImg[i]);
+    }
+    
+    imshow("ret", temp);
+    imwrite(".temp.bmp", temp);
     waitKey(0);
-
     return 0;
 }
