@@ -221,12 +221,15 @@ int main(int argc, char* argv[]) {
 
 
     // RANSAC
-    ransac(matchedPt0, matchedPt1, matchedPt0, matchedPt1);
+    vector<Point2f> filteredPt0;
+    vector<Point2f> filteredPt1;
+    ransac(matchedPt0, matchedPt1, filteredPt0, filteredPt1);
+
 
     // Decide whether to switch
     int reverseCount = 0;
-    for ( int i = 0; i < matchedPt0.size(); ++i ) {
-        if ( matchedPt0[i].x < matchedPt1[i].x ) {
+    for ( int i = 0; i < filteredPt0.size(); ++i ) {
+        if ( filteredPt0[i].x < filteredPt1[i].x ) {
             ++reverseCount;
         }
     }
@@ -234,11 +237,11 @@ int main(int argc, char* argv[]) {
     cout << reverseCount << endl;
 
     const double reverseThreshold = 0.75;
-    if ( reverseCount > reverseThreshold * matchedPt0.size() ) {
+    if ( reverseCount > reverseThreshold * filteredPt0.size() ) {
         cout << "Reverse: " << endl;
-        stitch(matchedPt1, matchedPt0, vsrcImg[1], vsrcImg[0]);
+        stitch(filteredPt1, filteredPt0, vsrcImg[1], vsrcImg[0]);
     } else {
-        stitch(matchedPt0, matchedPt1, vsrcImg[0], vsrcImg[1]);
+        stitch(filteredPt0, filteredPt1, vsrcImg[0], vsrcImg[1]);
     }
 
 
