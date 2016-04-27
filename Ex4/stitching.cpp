@@ -16,7 +16,7 @@ using namespace std;
 void ransac(const vector<Point2f>& matchedPt0, const vector<Point2f>& matchedPt1,
             vector<Point2f>& bestPt0, vector<Point2f>& bestPt1) {
 
-    const int iterations = 500;
+    const int iterations = 200;
     const int samples = 4;
     const int numberOfMatches = matchedPt0.size();
     int maxInliners = 0;
@@ -102,7 +102,7 @@ void blending(Mat left, Mat right, vector<Point2f>& leftPt) {
 
 // Stitching
 Mat merge(const vector<Point2f>& matchedPt0, const vector<Point2f>& matchedPt1, Mat img0, Mat img1) {
-    Mat homography = findHomography(matchedPt1, matchedPt0, CV_RANSAC);
+    Mat homography = findHomography(matchedPt1, matchedPt0, 0);
     Mat perspectiveImg;
     warpPerspective(img1, perspectiveImg, homography, Size(img0.cols + img1.cols, img0.rows));
     
@@ -118,14 +118,14 @@ Mat merge(const vector<Point2f>& matchedPt0, const vector<Point2f>& matchedPt1, 
 
     //blending(img0, perspectiveImg, transformedLeft);
 
-    Mat finalImg(img0.rows, img0.cols + img1.cols, CV_8UC3);
+    Mat finalImg(perspectiveImg.rows, img0.cols + img1.cols, CV_8UC3);
     Mat right(finalImg, Rect(0, 0, perspectiveImg.cols, perspectiveImg.rows));
     perspectiveImg.copyTo(right);
     Mat left(finalImg, Rect(0, 0, img0.cols, img0.rows));
     img0.copyTo(left);
 
     //imshow("l", left);
-    //imshow("r", right);
+    //imshow("r", perspectiveImg);
     //imshow("finalImg", finalImg);
     //imwrite("./dataset1/temp.bmp", finalImg);
 
@@ -133,9 +133,9 @@ Mat merge(const vector<Point2f>& matchedPt0, const vector<Point2f>& matchedPt1, 
 }
 
 
-Mat stitch(Mat srcImg0, Mat srcImg1) {
+void stitch(Mat& srcImg0, Mat srcImg1) {
     // SIFT
-    const int numberOfKp = 100;
+    const int numberOfKp = 500;
     SiftFeatureDetector detector(numberOfKp);
     Mat outImg0;
     Mat outImg1;
@@ -193,7 +193,7 @@ Mat stitch(Mat srcImg0, Mat srcImg1) {
         matchedPt0.push_back(kp0[idx1].pt);
         matchedPt1.push_back(kp1[idx2].pt);
     }
-    cout << "Good matches ratio:" << good_matches.size() << " / " << matches.size() << endl;
+    cout << "Good matches ratio: " << good_matches.size() << " / " << matches.size() << endl;
 
 
     Mat matchedImg;
@@ -219,16 +219,15 @@ Mat stitch(Mat srcImg0, Mat srcImg1) {
 
     cout << reverseCount << endl;
 
-    Mat ret;
     const double reverseThreshold = 0.75;
     if ( reverseCount > reverseThreshold * filteredPt0.size() ) {
-        // cout << "Reverse: " << endl;
-        ret = merge(filteredPt1, filteredPt0, srcImg1, srcImg0);
+        //cout << "Reverse: " << endl;
+        //srcImg0 = merge(matchedPt1, matchedPt0, srcImg1, srcImg0);
+        srcImg0 = merge(filteredPt1, filteredPt0, srcImg1, srcImg0);
     } else {
-        ret = merge(filteredPt0, filteredPt1, srcImg0, srcImg1);
+        //srcImg0 = merge(matchedPt0, matchedPt1, srcImg0, srcImg1);
+        srcImg0 = merge(filteredPt0, filteredPt1, srcImg0, srcImg1);
     }
-
-    return ret;
 }
 
 
@@ -247,16 +246,19 @@ int main(int argc, char* argv[]) {
             cout << "Error! Failed to load " << argv[i + 1] << endl;
             return -1;
         }
+
+        resize(srcImg, srcImg, Size(), 0.25, 0.25);
         vsrcImg.push_back(srcImg);
     }
 
     Mat temp = vsrcImg[0];
     for ( int i = 1; i < argc - 1; ++i ) {
-        temp = stitch(temp, vsrcImg[i]);
+        cout << "Stitching image " << i << ":\n";
+        stitch(temp, vsrcImg[i]);
     }
     
     imshow("ret", temp);
-    imwrite(".temp.bmp", temp);
+    imwrite("temp.bmp", temp);
     waitKey(0);
     return 0;
 }
