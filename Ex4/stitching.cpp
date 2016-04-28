@@ -16,7 +16,7 @@ using namespace std;
 void ransac(const vector<Point2f>& matchedPt0, const vector<Point2f>& matchedPt1,
             vector<Point2f>& bestPt0, vector<Point2f>& bestPt1) {
 
-    const int iterations = 200;
+    const int iterations = 1000;
     const int samples = 4;
     const int numberOfMatches = matchedPt0.size();
     int maxInliners = 0;
@@ -74,6 +74,7 @@ void ransac(const vector<Point2f>& matchedPt0, const vector<Point2f>& matchedPt1
     cout << "Max inliner ratio: " << maxInliners << " / " << numberOfMatches << endl;
 }
 
+/*
 // Ref: http://blog.csdn.net/pi9nc/article/details/9251387
 void blending(Mat left, Mat right, vector<Point2f>& leftPt) {
     int xLeft = min(leftPt[0].x, leftPt[1].x);
@@ -99,6 +100,7 @@ void blending(Mat left, Mat right, vector<Point2f>& leftPt) {
         }
     }
 }
+*/
 
 // Stitching
 Mat merge(const vector<Point2f>& matchedPt0, const vector<Point2f>& matchedPt1, Mat img0, Mat img1) {
@@ -106,6 +108,7 @@ Mat merge(const vector<Point2f>& matchedPt0, const vector<Point2f>& matchedPt1, 
     Mat perspectiveImg;
     warpPerspective(img1, perspectiveImg, homography, Size(img0.cols + img1.cols, img0.rows));
     
+    /*
     // Left corner points
     vector<Point2f> leftCorner;
     vector<Point2f> transformedLeft;
@@ -117,6 +120,7 @@ Mat merge(const vector<Point2f>& matchedPt0, const vector<Point2f>& matchedPt1, 
     perspectiveTransform(leftCorner, transformedLeft, homography);
 
     //blending(img0, perspectiveImg, transformedLeft);
+    */
 
     Mat finalImg(perspectiveImg.rows, img0.cols + img1.cols, CV_8UC3);
     Mat right(finalImg, Rect(0, 0, perspectiveImg.cols, perspectiveImg.rows));
@@ -125,9 +129,9 @@ Mat merge(const vector<Point2f>& matchedPt0, const vector<Point2f>& matchedPt1, 
     img0.copyTo(left);
 
     //imshow("l", left);
-    //imshow("r", perspectiveImg);
+    //imshow("r", right);
     //imshow("finalImg", finalImg);
-    //imwrite("./dataset1/temp.bmp", finalImg);
+    //imwrite("./temp.bmp", finalImg);
 
     return finalImg;
 }
@@ -164,7 +168,7 @@ void stitch(Mat& srcImg0, Mat srcImg1) {
 
     // Filter out good matches
     double max_dist = 0;
-    double min_dist = 300;
+    double min_dist = 200;
     for ( int i = 0; i < descriptors1.rows; i++ ) {
         double dist = matches[i].distance;
         if ( dist < min_dist ) {
@@ -217,11 +221,9 @@ void stitch(Mat& srcImg0, Mat srcImg1) {
         }
     }
 
-    cout << reverseCount << endl;
-
     const double reverseThreshold = 0.75;
     if ( reverseCount > reverseThreshold * filteredPt0.size() ) {
-        //cout << "Reverse: " << endl;
+        cout << "Reverse: " << endl;
         //srcImg0 = merge(matchedPt1, matchedPt0, srcImg1, srcImg0);
         srcImg0 = merge(filteredPt1, filteredPt0, srcImg1, srcImg0);
     } else {
@@ -247,7 +249,11 @@ int main(int argc, char* argv[]) {
             return -1;
         }
 
-        resize(srcImg, srcImg, Size(), 0.25, 0.25);
+        // resize images in dataset2 to speed up stitching.
+        if ( argv[i + 1][7] == '2' ) {
+           resize(srcImg, srcImg, Size(), 0.25, 0.25); 
+        }
+        
         vsrcImg.push_back(srcImg);
     }
 
