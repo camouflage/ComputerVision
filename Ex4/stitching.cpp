@@ -119,8 +119,9 @@ Mat merge(const vector<Point2f>& matchedPt0, const vector<Point2f>& matchedPt1, 
 
     perspectiveTransform(leftCorner, transformedLeft, homography);
 
-    //blending(img0, perspectiveImg, transformedLeft);
+    blending(img0, perspectiveImg, transformedLeft);
     */
+    
 
     Mat finalImg(perspectiveImg.rows, img0.cols + img1.cols, CV_8UC3);
     Mat right(finalImg, Rect(0, 0, perspectiveImg.cols, perspectiveImg.rows));
@@ -137,6 +138,7 @@ Mat merge(const vector<Point2f>& matchedPt0, const vector<Point2f>& matchedPt1, 
 }
 
 
+// Ref: http://docs.opencv.org/2.4/doc/tutorials/features2d/feature_homography/feature_homography.html
 void stitch(Mat& srcImg0, Mat srcImg1) {
     // SIFT
     const int numberOfKp = 500;
@@ -174,9 +176,11 @@ void stitch(Mat& srcImg0, Mat srcImg1) {
         if ( dist < min_dist ) {
             min_dist = dist;
         }
+        /*
         if ( dist > max_dist ) {
             max_dist = dist;
         }
+        */
     }
 
     vector<DMatch> good_matches;
@@ -201,10 +205,10 @@ void stitch(Mat& srcImg0, Mat srcImg1) {
 
 
     Mat matchedImg;
-    drawMatches(srcImg0, kp0, srcImg1, kp1, good_matches, matchedImg,
+    drawMatches(srcImg0, kp0, srcImg1, kp1, matches, matchedImg,
                 Scalar::all(-1), Scalar::all(-1),
                 vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
-    // imshow("match", matchedImg);
+    //imshow("match", matchedImg);
 
 
     // RANSAC
@@ -250,7 +254,7 @@ int main(int argc, char* argv[]) {
         }
 
         // resize images in dataset2 to speed up stitching.
-        if ( argv[i + 1][7] == '2' ) {
+        if ( strncmp(argv[i + 1], "dataset2", 8) == 0 ) {
            resize(srcImg, srcImg, Size(), 0.25, 0.25); 
         }
         
