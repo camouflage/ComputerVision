@@ -26,6 +26,7 @@ int otsu(Mat& grayImg) {
         //cout << i << " " << frequency[i] << endl;
         frequency[i] /= total; 
     }
+
     // Calculate cdf for p and i * p
     double culp[L];
     double culip[L];
@@ -110,15 +111,15 @@ int main(int argc, char* argv[]) {
     }
 
 
-    
+
     Mat finalImg(grayImg.rows, grayImg.cols, CV_BGR2GRAY);
     int numberOfRegions;
     bool vertical;
-    cout << "If you want to split the image vertically, please enter 1, otherwise enter 0(1 is recommended): ";
+    cout << "If you want to split the image vertically, please enter 1, otherwise enter 0: ";
     cin >> vertical;
     if ( vertical == 1 ) {
         // Divide images into multiple vertical regions and apply OTSU respectively.
-        cout << "Please enter the number of regions you want to split into(maximun: 16, 6 is recommended): ";
+        cout << "Please enter the number of regions you want to split into(maximun: 16): ";
         cin >> numberOfRegions;
         if ( numberOfRegions > 16 || numberOfRegions <= 0 ) {
             return -1;
@@ -131,7 +132,7 @@ int main(int argc, char* argv[]) {
             sub[i].copyTo(finalImg(Rect(grayImg.cols / numberOfRegions * i, 0, sub[i].cols, sub[i].rows)));
         }
     } else if ( vertical == 0 ) {
-        cout << "Please enter the number of regions you want to split into(maximun: 8, 3 is recommended): ";
+        cout << "Please enter the number of regions you want to split into(maximun: 8): ";
         cin >> numberOfRegions;
         if ( numberOfRegions > 8 || numberOfRegions <= 0 ) {
             return -1;
@@ -147,6 +148,8 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    imshow("final", finalImg);
+
 
     /*
     int threshold = otsu(grayImg);
@@ -156,7 +159,6 @@ int main(int argc, char* argv[]) {
     imshow("final", grayImg);
     */
 
-    imshow("final", finalImg);
     waitKey(0);
 
     return 0;
