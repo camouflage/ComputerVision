@@ -15,9 +15,20 @@ struct labelHeader {
     unsigned char number[4];
 };
 
+// Image header, which is the first 16 bytes of the file.
+struct imageHeader {
+    unsigned char magicNumber[4];
+    unsigned char number[4];
+    unsigned char rows[4];
+    unsigned char cols[4];
+};
+
 // Magic number
 const int labelMagicNumber = 2049;
 const int imageMagicNumber = 2051;
+
+// Path length
+const int pathLength = 100;
 
 // Convert char array of size 4 to integer.
 int charToInt(const unsigned char number[4]) {
@@ -28,7 +39,7 @@ int charToInt(const unsigned char number[4]) {
     return ret;
 }
 
-// Read raw data into Mat
+// Read in raw data and save to Mat
 Mat readData(fstream& fs, int number, int size) {
     int totalSize = number * size;
     unsigned char* tmp = new unsigned char[totalSize];
@@ -40,14 +51,14 @@ Mat readData(fstream& fs, int number, int size) {
     return ret;
 }
 
-// Read all the labels
-int readLabel(const char* filePath, Mat& ret) {
+// Read in all the labels
+void readLabel(const char* filePath, Mat& ret) {
     fstream fs;
     fs.open(filePath);
 
     if ( !fs.is_open() ) {
         cout << "Failed to open label file" << endl;
-        return -1;
+        exit(1);
     }
 
     labelHeader header;
@@ -55,25 +66,61 @@ int readLabel(const char* filePath, Mat& ret) {
 
     if ( charToInt(header.magicNumber) != labelMagicNumber ) {
         cout << "Error! The magic number of label file is not correct!" << endl;
-        return -1;
+        exit(1);
     }
 
     int number = charToInt(header.number);
     
-    // Labels occupy only one byte
+    // Each label occupies only one byte
     ret = readData(fs, number, 1);
+}
 
-    return 0;
+// Read in all the images
+void readImage(const char* filePath, Mat& ret) {
+    fstream fs;
+    fs.open(filePath);
+
+    if ( !fs.is_open() ) {
+        cout << "Failed to open image file" << endl;
+        exit(1);
+    }
+
+    imageHeader header;
+    fs.read((char*)(&header), sizeof(header));
+
+    if ( charToInt(header.magicNumber) != imageMagicNumber ) {
+        cout << "Error! The magic number of image file is not correct!" << endl;
+        exit(1);
+    }
+
+    int number = charToInt(header.number);
+    int rows = charToInt(header.rows);
+    int cols = charToInt(header.cols);
+
+    // Each image occupies rows * cols bytes
+    ret = readData(fs, number, rows * cols);
 }
 
 // Ref: http://yann.lecun.com/exdb/mnist/
 // Ref: http://blog.csdn.net/sheng_ai/article/details/23267039
 int main() {
-    char trainingLabel[100] = "MNIST/train-labels.idx1-ubyte";
+    char trainingLabel[pathLength] = "MNIST/train-labels.idx1-ubyte";
+    char testLabel[pathLength] = "MNIST/t10k-labels.idx1-ubyte";
+    char trainingImage[pathLength] = "MNIST/train-images.idx3-ubyte";
+    char testImage[pathLength] = "MNIST/t10k-images.idx3-ubyte";
 
-    Mat tlMat;
-    readLabel(trainingLabel, tlMat);
-    cout << tlMat;
+    Mat trainingLabelMat, testLabelMat, trainingImageMat, testImageMat;
+
+    readLabel(trainingLabel, trainingLabelMat);
+    readLabel(testLabel, testLabelMat);
+    readImage(trainingImage, trainingImageMat);
+    readImage(testImage, testImageMat);
+
+    /* 
+    // Ref: http://stackoverflow.com/questions/16312904/how-to-write-a-float-mat-to-a-file-in-opencv
+    FileStorage trainingImgFile("trainingImgFile.csv", FileStorage::WRITE);
+    trainingImgFile << "Mat" << trainingImageMat;
+    */
     
     return 0;
 }
