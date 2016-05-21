@@ -2,6 +2,7 @@ import scipy.io as sio
 import numpy as np
 import sys
 from sklearn.svm import SVC
+from sklearn.svm import LinearSVC
 
 if __name__ == '__main__':
     # Read in .mat
@@ -19,18 +20,18 @@ if __name__ == '__main__':
     numberOFFeatures = trainingImg.shape[1]
     numberOfTestData = testImg.shape[0]
     
-    # Ref: http://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html
-    clf = SVC()
+    # SVM Ref: http://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html
+    #clf = SVC()
+    # LinearSVM Ref: http://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVC.html
+    clf = LinearSVC(dual=False)
     clf.fit(trainingImg, trainingLabel.ravel()) 
-
-    predict = clf.predict(testImg).reshape
+    print("==Finish fitting==\n")
+    predict = clf.predict(testImg).reshape(numberOfTestData, 1)
     score = clf.score(testImg, testLabel)
-    #predictProba = clf.predict_proba(testImg)
-    wrongCount = np.count_nonzero(predict == testLabel)
+    wrongCount = numberOfTestData - np.count_nonzero(predict == testLabel)
 
     with open('svmAns.csv', 'w') as file:
         file.write("Error Rate: %f\n" %(wrongCount / 10000))
-        file.write("Score: %f" %(score))
-        for i in range(0, numberOfTestData):
+        file.write("Score: %f\n" %(score))
+        for i in range(numberOfTestData):
             file.write("%d %d\n" %(predict[i], testLabel[i]))
-
