@@ -16,6 +16,10 @@ if __name__ == '__main__':
     testImg = testImgMat["mnist_test"]
     testLabel = testLabelMat["mnist_test_labels"]
 
+    # Normalize
+    trainingImg /= 255
+    testImg /= 255
+
     numberOfTrainingData = trainingImg.shape[0]
     numberOFFeatures = trainingImg.shape[1]
     numberOfTestData = testImg.shape[0]
@@ -30,7 +34,7 @@ if __name__ == '__main__':
     score = clf.score(testImg, testLabel)
     wrongCount = numberOfTestData - np.count_nonzero(predict == testLabel)
 
-    with open('svmAns.csv', 'w') as file:
+    with open('svmResult.csv', 'w') as file:
         file.write("Error Rate: %f\n" %(wrongCount / 10000))
         file.write("Score: %f\n" %(score))
         for i in range(numberOfTestData):

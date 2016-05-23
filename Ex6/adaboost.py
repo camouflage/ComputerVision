@@ -9,6 +9,7 @@ if __name__ == '__main__':
     np.set_printoptions(edgeitems=5)
 
     # Read in .mat
+    # Ref: http://docs.scipy.org/doc/scipy/reference/generated/scipy.io.loadmat.html
     trainingImgMat = sio.loadmat('MNIST/mnist_train.mat')
     trainingLabelMat = sio.loadmat('MNIST/mnist_train_labels.mat')
     testImgMat = sio.loadmat('MNIST/mnist_test.mat')
@@ -19,13 +20,17 @@ if __name__ == '__main__':
     testImg = testImgMat["mnist_test"]
     testLabel = testLabelMat["mnist_test_labels"]
 
+    # Normalization
+    trainingImg /= 255
+    testImg /= 255
+
     numberOfTrainingData = trainingImg.shape[0]
     numberOfFeatures = trainingImg.shape[1]
     numberOfTestData = testImg.shape[0]
 
     # http://scikit-learn.org/stable/modules/generated/sklearn.ensemble.AdaBoostClassifier.html
-    #bdt = AdaBoostClassifier(DecisionTreeClassifier(criterion="entropy"))
-    bdt = AdaBoostClassifier(base_estimator=RandomForestClassifier())
+    bdt = AdaBoostClassifier(DecisionTreeClassifier(criterion="entropy"))
+    #bdt = AdaBoostClassifier(base_estimator=RandomForestClassifier())
     bdt.fit(trainingImg, trainingLabel.ravel())
 
     predict = bdt.predict(testImg).reshape(numberOfTestData, 1)
@@ -50,7 +55,7 @@ if __name__ == '__main__':
 
     wrongCount = numberOfTestData - np.count_nonzero(predict == testLabel)
 
-    with open('adaboostAns.csv', 'w') as file:
+    with open('adaboostResult.csv', 'w') as file:
         file.write("Error Rate: %f\n" %(wrongCount / 10000))
         file.write("Score: %f\n" %(score))
         for i in range(0, numberOfTestData):
