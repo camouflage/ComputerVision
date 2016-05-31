@@ -66,7 +66,7 @@ int main(int argc, char* argv[]) {
     // Set parameters for hough transform
     const float rho = 1;
     const float theta = CV_PI / 100;
-    const int threshold = 97;
+    const int threshold = 81;
     vector<Vec2f> lines;
     vector<myLine> mls;
 
@@ -112,7 +112,7 @@ int main(int argc, char* argv[]) {
         float rho = lines[i][0], theta = lines[i][1];
 
         // Eliminate lines that are close to each other.
-        const float deltaRho = 100;
+        const float deltaRho = 200;
         const float deltaTheta = 0.25;
                       //  When rhos are very close and
         if ( i > 0 && abs(abs(rho) - abs(lines[i - 1][0])) < deltaRho &&
@@ -201,6 +201,7 @@ int main(int argc, char* argv[]) {
 
     cout << "------------------" << endl << endl;
 
+    // imshow("Display Image", srcImg);
 
     /*** Deskew ***/
 
