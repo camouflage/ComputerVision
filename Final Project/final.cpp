@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    Mat srcImg, deskewedImg, grayImg, segmentedImg;
+    Mat srcImg, deskewedImg, grayImg;
     srcImg = imread(argv[1]);
     if ( !srcImg.data ) {
         cout << "No image data" << endl;
@@ -41,10 +41,17 @@ int main(int argc, char* argv[]) {
     //dilate(binarizedImg, binarizedImg, Mat());
     erode(binarizedImg, binarizedImg, element);
     */
+    Mat segmentedImg[5];
+    int numberOfSubRegions;
+    segmentation(grayImg, segmentedImg, numberOfSubRegions);
 
-    segmentedImg = segmentation(grayImg);
+    for ( int i = 0; i < numberOfSubRegions; ++i ) {
+        char imgName[10];
+        // http://stackoverflow.com/questions/347132/append-an-int-to-char
+        sprintf(imgName, "Image%d", i);
+        imshow(imgName, segmentedImg[i]);
+    }
 
-    imshow("Display Image", segmentedImg);
     waitKey(0);
     
     return 0;

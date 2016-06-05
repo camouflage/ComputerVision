@@ -220,7 +220,7 @@ Mat skewCorrection(Mat srcImg) {
 
     // Ref: http://docs.opencv.org/2.4/doc/tutorials/imgproc/imgtrans/warp_affine/warp_affine.html
     rotationMatrix = getRotationMatrix2D(center, rotationAngle, 1);
-    warpAffine(srcImg, rotatedImg, rotationMatrix, rotatedImg.size() );
+    warpAffine(srcImg, rotatedImg, rotationMatrix, rotatedImg.size());
     // Map the points to the rotated image
     transform(pts, pts, rotationMatrix);
 

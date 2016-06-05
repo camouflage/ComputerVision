@@ -7,7 +7,37 @@
 using namespace cv;
 using namespace std;
 
-Mat segmentation(Mat grayImg) {
+// Rotate image
+Mat rotation(Mat srcImg, double angle) {
+    Mat tempImg;
+    float radian = (float)(angle / 180.0 * CV_PI);
+
+    int uniSize = (int)(max(srcImg.cols, srcImg.rows) * 1.414);
+    int dx = (int)(uniSize - srcImg.cols) / 2;
+    int dy = (int)(uniSize - srcImg.rows) / 2;
+    copyMakeBorder(srcImg, tempImg, dy, dy, dx, dx, BORDER_CONSTANT);
+
+    Point2f center((float)(tempImg.cols / 2), (float)(tempImg.rows / 2));
+    Mat affine_matrix = getRotationMatrix2D(center, angle, 1.0);
+
+    warpAffine(tempImg, tempImg, affine_matrix, tempImg.size());
+
+    float sinVal = fabs(sin(radian));
+    float cosVal = fabs(cos(radian));
+    Size targetSize((int)(srcImg.cols * cosVal + srcImg.rows * sinVal),
+        (int)(srcImg.cols * sinVal + srcImg.rows * cosVal));
+
+
+    int x = (tempImg.cols - targetSize.width) / 2;
+    int y = (tempImg.rows - targetSize.height) / 2;
+    Rect rect(x, y, targetSize.width, targetSize.height);
+    tempImg = Mat(tempImg, rect);
+
+    return tempImg;
+}
+
+
+void segmentation(Mat grayImg, Mat* retImg, int& size) {
     Mat binarizedImg;
     
     adaptiveThreshold(grayImg, binarizedImg, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY_INV, 35, 27);
@@ -76,6 +106,18 @@ Mat segmentation(Mat grayImg) {
         cout << pos[i] << " ";
     }
     cout << endl << endl;
-    
-    return binarizedImg;
+
+    const int extendedBoundary = 0;
+    size = pos.size() / 2;
+    Mat croppedImg[5];
+
+    for ( int i = 0; i < size; ++i ) {
+        grayImg(Rect(pos[i * 2] - extendedBoundary, 0,
+            pos[i * 2 + 1] - pos[i * 2] + extendedBoundary, grayImg.rows)).copyTo(croppedImg[i]);
+
+        // Rotate 90 degrees clockwise.
+        retImg[i] = rotation(croppedImg[i], 270);
+
+        
+    }
 }
