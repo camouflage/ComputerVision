@@ -4,6 +4,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/opencv.hpp>
 #include <cmath>
+#include <fstream>
 #include "skewCorrection.cpp"
 #include "segmentation.cpp"
 
@@ -27,32 +28,41 @@ int main(int argc, char* argv[]) {
     // Ex3 skewCorrection.
     deskewedImg = skewCorrection(srcImg);
     
-    // ConverT to CV_8UC1
+    // Convert to CV_8UC1
     cvtColor(deskewedImg, grayImg, CV_BGR2GRAY);
 
-    // http://docs.opencv.org/2.4/modules/imgproc/doc/miscellaneous_transformations.html?highlight=threshold
+    // Segmentation
+    vector<vector<Mat> > segmentedImg;
+    segmentation(grayImg, segmentedImg);
+
+    vector<vector<Mat> > retImg;
+    retImg = addBorder(segmentedImg);
     
+    adjustStyle(retImg);
 
-    /*
-    int erosion_size = 1;  
-    Mat element = getStructuringElement(cv::MORPH_CROSS,
-              cv::Size(2 * erosion_size + 1, 2 * erosion_size + 1),
-              cv::Point(erosion_size, erosion_size) );
-    //dilate(binarizedImg, binarizedImg, Mat());
-    erode(binarizedImg, binarizedImg, element);
-    */
-    Mat segmentedImg[5];
-    int numberOfSubRegions;
-    segmentation(grayImg, segmentedImg, numberOfSubRegions);
+    fstream fs("pixels.csv", ios::app);
+    for ( int i = 0; i < retImg.size(); ++i ) {
+        for ( int j = 0; j < retImg[i].size(); ++j ) {
 
-    for ( int i = 0; i < numberOfSubRegions; ++i ) {
-        char imgName[10];
-        // http://stackoverflow.com/questions/347132/append-an-int-to-char
-        sprintf(imgName, "Image%d", i);
-        imshow(imgName, segmentedImg[i]);
+            char imgName[30];
+            char imageNumber = argv[1][strlen(argv[1]) - 5];
+            // http://stackoverflow.com/questions/347132/append-an-int-to-char
+            sprintf(imgName, "./croppedImg/Image%c %d %d.jpg", imageNumber, i, j);
+
+            //cout << imgName << endl;
+            //imshow(imgName, retImg[i][j]);
+            //imwrite(imgName, retImg[i][j]);
+            
+            // Write raw data.
+            for ( int k = 0; k < retImg[i][j].rows; ++k ) {
+                for ( int l = 0; l < retImg[i][j].cols; ++l ) {
+                    fs << (int) retImg[i][j].at<uchar>(k, l) << " ";
+                }
+            }
+            fs << endl;
+        }
     }
-
-    waitKey(0);
     
+    //waitKey(0);
     return 0;
 }

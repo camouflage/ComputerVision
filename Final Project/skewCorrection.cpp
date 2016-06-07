@@ -248,10 +248,19 @@ Mat skewCorrection(Mat srcImg) {
     */
 
     // Set standard points
+    
     const int lx = 130;
     const int ly = 160;
     const int rx = 510;
     const int ry = 720;
+    
+    /*
+    const int lx = 130;
+    const int ly = 160;
+    const int rx = 410;
+    const int ry = 620;
+    */
+
     const int width = rx - lx;
     const int height = ry - ly;
     Point2f topLeft;
