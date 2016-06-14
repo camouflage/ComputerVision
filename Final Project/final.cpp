@@ -5,6 +5,7 @@
 #include <opencv2/opencv.hpp>
 #include <cmath>
 #include <fstream>
+#include <iomanip>
 #include "skewCorrection.cpp"
 #include "segmentation.cpp"
 
@@ -27,7 +28,7 @@ int main(int argc, char* argv[]) {
 
     // Ex3 skewCorrection.
     deskewedImg = skewCorrection(srcImg);
-    
+
     // Convert to CV_8UC1
     cvtColor(deskewedImg, grayImg, CV_BGR2GRAY);
 
@@ -35,34 +36,40 @@ int main(int argc, char* argv[]) {
     vector<vector<Mat> > segmentedImg;
     segmentation(grayImg, segmentedImg);
 
+    // Other processings
     vector<vector<Mat> > retImg;
     retImg = addBorder(segmentedImg);
     
     adjustStyle(retImg);
 
-    fstream fs("pixels.csv", ios::app);
-    for ( int i = 0; i < retImg.size(); ++i ) {
-        for ( int j = 0; j < retImg[i].size(); ++j ) {
+    bool outputImg = 1;
+    if ( outputImg == 1 ) {
+        fstream fs("./result/pixels.csv", ios::app);
+        for ( int i = 0; i < retImg.size(); ++i ) {
+            for ( int j = 0; j < retImg[i].size(); ++j ) {
 
-            char imgName[30];
-            char imageNumber = argv[1][strlen(argv[1]) - 5];
-            // http://stackoverflow.com/questions/347132/append-an-int-to-char
-            sprintf(imgName, "./croppedImg/Image%c %d %d.jpg", imageNumber, i, j);
+                char imgName[30];
+                char imageNumber = argv[1][strlen(argv[1]) - 5];
+                // http://stackoverflow.com/questions/347132/append-an-int-to-char
+                sprintf(imgName, "../result/croppedImg/Image%c %d %d.jpg", imageNumber, i, j);
 
-            //cout << imgName << endl;
-            //imshow(imgName, retImg[i][j]);
-            //imwrite(imgName, retImg[i][j]);
-            
-            // Write raw data.
-            for ( int k = 0; k < retImg[i][j].rows; ++k ) {
-                for ( int l = 0; l < retImg[i][j].cols; ++l ) {
-                    fs << (int) retImg[i][j].at<uchar>(k, l) << " ";
+                cout << imgName << endl;
+                //imshow(imgName, retImg[i][j]);
+                imwrite(imgName, retImg[i][j]);
+                fs << setfill('0') << setw(2) << imageNumber 
+                   << setfill('0') << setw(2) << i 
+                   << setfill('0') << setw(2) << j << " ";
+                   
+                // Write raw data.
+                for ( int k = 0; k < retImg[i][j].rows; ++k ) {
+                    for ( int l = 0; l < retImg[i][j].cols; ++l ) {
+                        fs << (int) retImg[i][j].at<uchar>(k, l) << " ";
+                    }
                 }
+                fs << endl;
             }
-            fs << endl;
         }
     }
-    
-    //waitKey(0);
+
     return 0;
 }

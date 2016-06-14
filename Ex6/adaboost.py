@@ -4,6 +4,7 @@ import sys
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.externals import joblib
 
 if __name__ == '__main__':
     np.set_printoptions(edgeitems=5)
@@ -20,22 +21,28 @@ if __name__ == '__main__':
     testImg = testImgMat["mnist_test"]
     testLabel = testLabelMat["mnist_test_labels"]
 
+    print(trainingImg[0])
+    print(trainingImg[1])
     # Normalization
     trainingImg /= 255
     testImg /= 255
+
 
     numberOfTrainingData = trainingImg.shape[0]
     numberOfFeatures = trainingImg.shape[1]
     numberOfTestData = testImg.shape[0]
 
     # http://scikit-learn.org/stable/modules/generated/sklearn.ensemble.AdaBoostClassifier.html
-    bdt = AdaBoostClassifier(DecisionTreeClassifier(criterion="entropy"))
-    #bdt = AdaBoostClassifier(base_estimator=RandomForestClassifier())
+    #bdt = AdaBoostClassifier(DecisionTreeClassifier(criterion="entropy"))
+    bdt = AdaBoostClassifier(base_estimator=RandomForestClassifier())
     bdt.fit(trainingImg, trainingLabel.ravel())
 
     predict = bdt.predict(testImg).reshape(numberOfTestData, 1)
     score = bdt.score(testImg, testLabel)
     #predictProba = bdt.predict_proba(testImg)
+
+    # now you can save it to a file
+    #joblib.dump(bdt, "myClassifier.pkl") 
 
     """
     trainingFullLabel = np.empty([10, numberOfTrainingData], dtype=np.int8)
