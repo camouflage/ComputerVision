@@ -40,7 +40,9 @@ if __name__ == '__main__':
         with open('src/my_dumped_classifier.pkl', 'rb') as f:
             clf = pickle.load(f)
 
+    print("=====Result=====")
     predict = clf.predict(testImg).reshape(numberOfTestData, 1)
     with open('./result/predictResult.csv', 'w') as file:
         for i in range(numberOfTestData):
+            print("Image: %d, digit: %d" %(testId[i], predict[i]))
             file.write("%d %d\n" %(testId[i], predict[i]))

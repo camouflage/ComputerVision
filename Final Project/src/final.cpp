@@ -1,8 +1,5 @@
 #include <iostream>
 #include <cstdio>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/opencv.hpp>
 #include <cmath>
 #include <fstream>
 #include <iomanip>
@@ -42,19 +39,22 @@ int main(int argc, char* argv[]) {
     
     adjustStyle(retImg);
 
-    const bool outputImg = 0;
-    if ( outputImg ) {
-        fstream fs("./result/pixels.csv", ios::app);
-        for ( int i = 0; i < retImg.size(); ++i ) {
-            for ( int j = 0; j < retImg[i].size(); ++j ) {
+    
+    for ( int i = 0; i < retImg.size(); ++i ) {
+        for ( int j = 0; j < retImg[i].size(); ++j ) {
 
-                char imgName[40];
-                char imageNumber = argv[1][strlen(argv[1]) - 5];
-                // http://stackoverflow.com/questions/347132/append-an-int-to-char
-                sprintf(imgName, "./result/croppedImg/Image%c %d %d.jpg", imageNumber, i, j);
+            char imgName[40];
+            char imageNumber = argv[1][strlen(argv[1]) - 5];
+            // http://stackoverflow.com/questions/347132/append-an-int-to-char
+            sprintf(imgName, "./result/croppedImg/Image%c %d %d.jpg", imageNumber, i, j);
 
-                cout << imgName << endl;
-                //imshow(imgName, retImg[i][j]);
+            //cout << imgName << endl;
+            imshow(imgName, retImg[i][j]);
+            
+            const bool outputImg = 0;
+            if ( outputImg ) {
+                fstream fs("./result/pixels.csv", ios::app);
+                // Save image
                 imwrite(imgName, retImg[i][j]);
                 fs << setfill('0') << setw(2) << imageNumber 
                    << setfill('0') << setw(2) << i 
@@ -71,5 +71,6 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    waitKey(0);
     return 0;
 }

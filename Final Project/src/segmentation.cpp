@@ -1,8 +1,5 @@
 #include <iostream>
 #include <cstdio>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/opencv.hpp>
 #include "otherProcessing.cpp"
 
 using namespace cv;
@@ -14,7 +11,7 @@ void stripSegmentation(Mat grayImg, Mat* retImg, int& size) {
     
     adaptiveThreshold(grayImg, binarizedImg, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY_INV, 35, 27);
 
-    int frequency[binarizedImg.cols];
+    int frequency[500];
     memset(frequency, 0, sizeof(frequency));
 
     //cout << binarizedImg.rows << " " << binarizedImg.cols << endl;
@@ -28,18 +25,19 @@ void stripSegmentation(Mat grayImg, Mat* retImg, int& size) {
         }
     }
 
+    /*
     cout << "=====Frequency for Each Col=====" << endl;
     for ( int i = 0; i < binarizedImg.cols; ++i ) { 
         cout << frequency[i] << " ";
     }
     cout << endl << endl;
-
+    */
 
     // Region segmentation
     const int valueThreshold = 2;
     const int timesThreshold = 5;
 
-    int contLowTimes[binarizedImg.cols];
+    int contLowTimes[500];
     memset(contLowTimes, 0, sizeof(contLowTimes));
     contLowTimes[0] = 1;
     for ( int i = 1; i < binarizedImg.cols; ++i ) { 
@@ -61,11 +59,13 @@ void stripSegmentation(Mat grayImg, Mat* retImg, int& size) {
         }
     }
 
+    /*
     cout << "=====Continuous Low Times=====" << endl;
     for ( int i = 0; i < binarizedImg.cols; ++i ) { 
         cout << contLowTimes[i] << " ";
     }
     cout << endl << endl;
+    */
 
     vector<int> pos;
     for ( int i = 1; i < binarizedImg.cols; ++i ) {
