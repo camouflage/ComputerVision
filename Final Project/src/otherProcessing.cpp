@@ -1,12 +1,4 @@
-#include <iostream>
-#include <cstdio>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/opencv.hpp>
-#include <cmath>
-
-using namespace cv;
-using namespace std;
+#include"otherProcessing.h"
 
 // Rotate image
 Mat rotation(Mat srcImg, double angle) {
